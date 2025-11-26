@@ -1,0 +1,17 @@
+QuestaSim-64 vlog 10.2c Compiler 2013.07 Jul 19 2013
+-- Compiling module RegFile
+-- Compiling module DatapathSingleCycle
+-- Compiling module MemorySingleCycle
+-- Compiling module Processor
+-- Compiling module gp1
+-- Compiling module gp4
+-- Compiling module gp8
+-- Compiling module cla
+-- Compiling module divider_unsigned
+-- Compiling module divu_iter
+-- Compiling module test_bench
+
+Top level modules:
+	gp1
+	divider_unsigned
+	test_bench

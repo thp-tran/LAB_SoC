@@ -1,0 +1,60 @@
+# vsim -assertdebug -do {log -r /*; run -all;} -l simlog.log -debugDB -voptargs=+acc -c test_bench 
+# ** Note: (vsim-3813) Design is being optimized due to module recompilation...
+# 
+# ** Note: (vsim-8611) Generating debug db.
+# 
+# ** Note: (vopt-4301) Memory core inferred for signal 'regs' width=32, depth=32, type=RAM at location ../rtl/SinglePath.v:27
+# 
+# //  Questa Sim-64
+# //  Version 10.2c Unknown Platform Jul 19 2013
+# //
+# //  Copyright 1991-2013 Mentor Graphics Corporation
+# //  All Rights Reserved.
+# //
+# //  THIS WORK CONTAINS TRADE SECRET AND PROPRIETARY INFORMATION
+# //  WHICH IS THE PROPERTY OF MENTOR GRAPHICS CORPORATION OR ITS
+# //  LICENSORS AND IS SUBJECT TO LICENSE TERMS.
+# //
+# Loading work.test_bench(fast)
+# Loading work.Processor(fast)
+# Loading work.MemorySingleCycle(fast)
+# Loading work.DatapathSingleCycle(fast)
+# Loading work.cla(fast)
+# Loading work.gp8(fast)
+# Loading work.gp4(fast)
+# Loading work.RegFile(fast)
+# ** Note: (vsim-8716) Reusing existing debug database vsim.dbg.
+# 
+# log -r /* 
+#  run -all 
+# 
+# ===== RUN ADDI / ADD / SUB (NO LOOP) =====
+# 
+# PC=00000000  INST=ffc00513 
+# x1=0  x2=0  x3=0  x4=0 x8=0 x10=-4
+#  HALT=0
+# PC=00000004  INST=00050113 
+# x1=0  x2=-4  x3=0  x4=0 x8=0 x10=-4
+#  HALT=0
+# PC=00000008  INST=00000097 
+# x1=8  x2=-4  x3=0  x4=0 x8=0 x10=-4
+#  HALT=0
+# PC=0000000c  INST=018080e7 
+# x1=16  x2=-4  x3=0  x4=0 x8=0 x10=-4
+#  HALT=0
+# PC=00000020  INST=01440413 
+# x1=16  x2=-4  x3=0  x4=0 x8=20 x10=-4
+#  HALT=0
+# PC=00000024  INST=ff010113 
+# x1=16  x2=-20  x3=0  x4=0 x8=20 x10=-4
+#  HALT=0
+# PC=00000028  INST=00242623 
+#   MEM[32] <= -20 
+# PC=0000002c  INST=00c42083 
+#   R[1] <= MEM[32] = -20
+# PC=00000030  INST=xxxxxxxx 
+# x1=-20  x2=-20  x3=0  x4=0 x8=20 x10=-4
+#  HALT=1
+# ===== CPU HALTED =====
+# ** Note: $finish    : ../tb/test_bench.v(69)
+#    Time: 106 ns  Iteration: 0  Instance: /test_bench
