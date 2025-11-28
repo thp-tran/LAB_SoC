@@ -22,34 +22,33 @@ module RegFile (
   input                    rst
 );
 
-  // TODO: copy your homework #3 code here
   localparam NumRegs = 32;
 
-// Reg array
-reg [31:0] regs [0:NumRegs-1];
+  // Reg array
+  reg [31:0] regs [0:NumRegs-1];
 
-// Declare loop variable here
-integer i;
+  integer i;
 
-always @(posedge clk or posedge rst) begin
+  always @(posedge clk or posedge rst) begin
     if (rst) begin
-        // clear all registers
-        for (i = 0; i < NumRegs; i = i + 1)
-            regs[i] <= 32'b0;
-    end 
-    else begin
-        if (we && (rd != 0))
-            regs[rd] <= rd_data;   // x0 cannot be written
+      // clear all registers
+      for (i = 0; i < NumRegs; i = i + 1)
+        regs[i] <= 32'b0;
+    end else begin
+      if (we && (rd != 0))
+        regs[rd] <= rd_data;   // x0 cannot be written
     end
-end
+  end
 
-// Combinational read
-always @(*) begin
+  // Combinational read
+  always @(*) begin
     rs1_data = regs[rs1];
     rs2_data = regs[rs2];
-end
+  end
 
 endmodule
+
+// ============================================================================
 
 module DatapathMultiCycle (
     input                    clk,
@@ -64,12 +63,10 @@ module DatapathMultiCycle (
     output reg [        3:0] store_we_to_dmem
 );
 
-  // TODO: your code here (largely based on homework #3)
-
+  // ================= ALU (CLA) =================
   reg [31:0] alu_a;
   reg [31:0] alu_b;
   reg        alu_cin;
-
   wire [31:0] alu_sum;
 
   cla alu_cla(
@@ -80,9 +77,7 @@ module DatapathMultiCycle (
     .cout_final()
   );
 
-
-
-  // components of the instruction
+  // ================= Instruction fields =================
   wire [           6:0] inst_funct7;
   wire [           4:0] inst_rs2;
   wire [           4:0] inst_rs1;
@@ -90,33 +85,29 @@ module DatapathMultiCycle (
   wire [           4:0] inst_rd;
   wire [`OPCODE_SIZE:0] inst_opcode;
 
-  // split R-type instruction - see section 2.2 of RiscV spec
   assign {inst_funct7, inst_rs2, inst_rs1, inst_funct3, inst_rd, inst_opcode} = inst_from_imem;
 
-  // setup for I, S, B & J type instructions
-  // I - short immediates and loads
+  // I, S, B, J immediates
   wire [11:0] imm_i;
-  assign imm_i = inst_from_imem[31:20]; // immidiate from register-immediate instructions
+  assign imm_i = inst_from_imem[31:20];
   wire [ 4:0] imm_shamt = inst_from_imem[24:20];
 
-  // S - stores
   wire [11:0] imm_s;
   assign imm_s = {inst_funct7, inst_rd};
 
-  // B - conditionals
   wire [12:0] imm_b;
   assign {imm_b[12], imm_b[10:1], imm_b[11], imm_b[0]} = {inst_funct7, inst_rd, 1'b0};
 
-  // J - unconditional jumps
   wire [20:0] imm_j;
-  assign {imm_j[20], imm_j[10:1], imm_j[11], imm_j[19:12], imm_j[0]} = {inst_from_imem[31:12], 1'b0};
+  assign {imm_j[20], imm_j[10:1], imm_j[11], imm_j[19:12], imm_j[0]} =
+         {inst_from_imem[31:12], 1'b0};
 
   wire [`REG_SIZE:0] imm_i_sext = {{20{imm_i[11]}}, imm_i[11:0]};
   wire [`REG_SIZE:0] imm_s_sext = {{20{imm_s[11]}}, imm_s[11:0]};
   wire [`REG_SIZE:0] imm_b_sext = {{19{imm_b[12]}}, imm_b[12:0]};
   wire [`REG_SIZE:0] imm_j_sext = {{11{imm_j[20]}}, imm_j[20:0]};
 
-  // opcodes - see section 19 of RiscV spec
+  // ================= Opcodes & decode =================
   localparam [`OPCODE_SIZE:0] OpLoad    = 7'b00_000_11;
   localparam [`OPCODE_SIZE:0] OpStore   = 7'b01_000_11;
   localparam [`OPCODE_SIZE:0] OpBranch  = 7'b11_000_11;
@@ -160,75 +151,95 @@ module DatapathMultiCycle (
   wire inst_ori    = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b110);
   wire inst_andi   = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b111);
 
-  wire inst_slli   = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b001) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_srli   = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b101) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_srai   = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b101) & (inst_from_imem[31:25] == 7'b0100000);
+  wire inst_slli   = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b001) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_srli   = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b101) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_srai   = (inst_opcode == OpRegImm ) & (inst_from_imem[14:12] == 3'b101) &
+                     (inst_from_imem[31:25] == 7'b0100000);
 
-  wire inst_add    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b000) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_sub    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b000) & (inst_from_imem[31:25] == 7'b0100000);
-  wire inst_sll    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b001) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_slt    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b010) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_sltu   = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b011) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_xor    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b100) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_srl    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b101) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_sra    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b101) & (inst_from_imem[31:25] == 7'b0100000);
-  wire inst_or     = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b110) & (inst_from_imem[31:25] == 7'd0      );
-  wire inst_and    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b111) & (inst_from_imem[31:25] == 7'd0      );
+  wire inst_add    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b000) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_sub    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b000) &
+                     (inst_from_imem[31:25] == 7'b0100000);
+  wire inst_sll    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b001) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_slt    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b010) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_sltu   = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b011) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_xor    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b100) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_srl    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b101) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_sra    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b101) &
+                     (inst_from_imem[31:25] == 7'b0100000);
+  wire inst_or     = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b110) &
+                     (inst_from_imem[31:25] == 7'd0);
+  wire inst_and    = (inst_opcode == OpRegReg ) & (inst_from_imem[14:12] == 3'b111) &
+                     (inst_from_imem[31:25] == 7'd0);
 
-  wire inst_mul    = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b000    );
-  wire inst_mulh   = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b001    );
-  wire inst_mulhsu = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b010    );
-  wire inst_mulhu  = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b011    );
-  wire inst_div    = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b100    );
-  wire inst_divu   = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b101    );
-  wire inst_rem    = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b110    );
-  wire inst_remu   = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1  ) & (inst_from_imem[14:12] == 3'b111    );
+  wire inst_mul    = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b000);
+  wire inst_mulh   = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b001);
+  wire inst_mulhsu = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b010);
+  wire inst_mulhu  = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b011);
+  wire inst_div    = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b100);
+  wire inst_divu   = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b101);
+  wire inst_rem    = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b110);
+  wire inst_remu   = (inst_opcode == OpRegReg ) & (inst_from_imem[31:25] == 7'd1) &
+                     (inst_from_imem[14:12] == 3'b111);
 
-  wire inst_ecall  = (inst_opcode == OpEnviron) & (inst_from_imem[31:7] == 25'd0  );
+  wire inst_ecall  = (inst_opcode == OpEnviron) & (inst_from_imem[31:7] == 25'd0);
   wire inst_fence  = (inst_opcode == OpMiscMem);
 
+  // ================= Divider control =================
+  localparam DIV_WAIT = 12;   // số cycle chờ cho chắc (>= độ sâu pipeline)
 
-      // ==== Divider pipeline signals ====
   reg        div_busy;
-  reg  [2:0] div_count;         // đếm 0..7
-  reg [31:0] div_dividend_reg;  // giữ toán hạng dividend
-  reg [31:0] div_divisor_reg;   // giữ toán hạng divisor
+  reg        div_done;
+  reg  [3:0] div_count;
+  reg [31:0] div_dividend_reg;
+  reg [31:0] div_divisor_reg;
 
   wire [31:0] div_quotient;
   wire [31:0] div_remainder;
 
   wire is_div_op = inst_div | inst_divu | inst_rem | inst_remu;
-  
-  // ====== Hỗ trợ signed cho div / rem ======
-  reg        div_is_signed;    // 1 nếu là div / rem (signed)
-  reg        dividend_sign;    // bit dấu của rs1 tại lúc bắt đầu chia
-  reg        divisor_sign;     // bit dấu của rs2 tại lúc bắt đầu chia
 
-  // quotient và remainder đã chỉnh dấu cho trường hợp signed
+  reg        div_is_signed;
+  reg        dividend_sign;
+  reg        divisor_sign;
+
   wire [31:0] div_quot_signed;
   wire [31:0] div_rem_signed;
 
-  // Nếu signed và dấu khác nhau -> đổi dấu quotient
   assign div_quot_signed = (div_is_signed && (dividend_sign ^ divisor_sign))
                            ? -div_quotient
                            :  div_quotient;
 
-  // remainder luôn cùng dấu với dividend
   assign div_rem_signed  = (div_is_signed && dividend_sign)
                            ? -div_remainder
                            :  div_remainder;
 
-  // Divider instance
+  // Divider instance (unsigned pipeline)
   DividerUnsignedPipelined divu_pipelined (
     .clk        (clk),
     .rst        (rst),
-    .stall      (1'b0),              // lab cho phép bỏ qua stall
-    .i_dividend (div_dividend_reg),  // giữ cố định trong 8 cycle
+    .stall      (1'b0),
+    .i_dividend (div_dividend_reg),
     .i_divisor  (div_divisor_reg),
     .o_remainder(div_remainder),
     .o_quotient (div_quotient)
   );
-  // program counter
+
+  // ================= Program Counter =================
   reg [`REG_SIZE:0] pcNext, pcCurrent;
   always @(posedge clk) begin
     if (rst) begin
@@ -239,30 +250,28 @@ module DatapathMultiCycle (
   end
   assign pc_to_imem = pcCurrent;
 
-  // cycle/inst._from_imem counters
+  // ================= Cycle counters (optional) =================
   reg [`REG_SIZE:0] cycles_current, num_inst_current;
   always @(posedge clk) begin
     if (rst) begin
-      cycles_current <= 0;
+      cycles_current   <= 0;
       num_inst_current <= 0;
     end else begin
       cycles_current <= cycles_current + 1;
-      if (!rst) begin
-        num_inst_current <= num_inst_current + 1;
-      end
+      num_inst_current <= num_inst_current + 1;
     end
   end
 
-  // NOTE: don't rename your RegFile instance as the tests expect it to be `rf`
-  // TODO: you will need to edit the port connections, however.
+  // ================= Register File =================
   wire [`REG_SIZE:0] rs1_data;
   wire [`REG_SIZE:0] rs2_data;
-  reg we;
-  reg [`REG_SIZE:0] rd_data;
+  reg  we;
+  reg  [`REG_SIZE:0] rd_data;
   wire [`REG_SIZE:0] alu_out;
   wire [4:0] rd;
   wire [4:0] rs1;
   wire [4:0] rs2;
+
   RegFile rf (
     .clk      (clk),
     .rst      (rst),
@@ -274,15 +283,20 @@ module DatapathMultiCycle (
     .rs1_data (rs1_data),
     .rs2_data (rs2_data)
   );
-  reg[2 : 0] alu_op;
-  localparam ALU_ADD = 3'b001;
-  localparam ALU_SUB = 3'b010;
-  localparam ALU_ADDI = 3'b100;  
+
+  reg [2:0] alu_op;
+  localparam ALU_ADD  = 3'b001;
+  localparam ALU_SUB  = 3'b010;
+  localparam ALU_ADDI = 3'b100;
+
   reg illegal_inst;
-    always @(posedge clk or posedge rst) begin
+
+  // ====== Divider FSM (clocked) ======
+  always @(posedge clk or posedge rst) begin
     if (rst) begin
       div_busy         <= 1'b0;
-      div_count        <= 3'd0;
+      div_done         <= 1'b0;
+      div_count        <= 4'd0;
       div_dividend_reg <= 32'd0;
       div_divisor_reg  <= 32'd0;
       div_is_signed    <= 1'b0;
@@ -290,41 +304,47 @@ module DatapathMultiCycle (
       divisor_sign     <= 1'b0;
     end else begin
       if (!div_busy && is_div_op) begin
-        // BẮT ĐẦU 1 lệnh chia
+        // Bắt đầu lệnh chia
         div_busy   <= 1'b1;
-        div_count  <= 3'd0;
+        div_done   <= 1'b0;
+        div_count  <= 4'd0;
 
-        // phân biệt signed / unsigned
         div_is_signed <= (inst_div | inst_rem);
-
-        // lưu dấu operand
         dividend_sign <= rs1_data[31];
         divisor_sign  <= rs2_data[31];
 
         if (inst_div | inst_rem) begin
-          // SIGNED: gửi trị tuyệt đối xuống divider unsigned
+          // Signed: gửi trị tuyệt đối xuống divider
           div_dividend_reg <= rs1_data[31] ? -rs1_data : rs1_data;
           div_divisor_reg  <= rs2_data[31] ? -rs2_data : rs2_data;
         end else begin
-          // UNSIGNED: dùng nguyên giá trị
+          // Unsigned
           div_dividend_reg <= rs1_data;
           div_divisor_reg  <= rs2_data;
         end
-      end else if (div_busy) begin
-        // ĐANG trong chuỗi 8 cycle
-        if (div_count == 3'd7) begin
-          // kết thúc 8 chu kỳ
-          div_busy  <= 1'b0;
-          div_count <= 3'd0;
+
+      end else if (div_busy && !div_done) begin
+        // Đang chờ pipeline
+        if (div_count == DIV_WAIT) begin
+          div_done <= 1'b1;      // báo đã sẵn sàng write-back
         end else begin
-          div_count <= div_count + 3'd1;
+          div_count <= div_count + 4'd1;
+        end
+
+      end else if (div_busy && div_done) begin
+        // Sau khi đã ghi rd, đợi PC sang lệnh mới (không còn is_div_op)
+        if (!is_div_op) begin
+          div_busy  <= 1'b0;
+          div_done  <= 1'b0;
+          div_count <= 4'd0;
         end
       end
     end
   end
 
-
+  // ====== Control / Next-state logic (combinational) ======
   always @(*) begin
+    // Default values
     we                = 1'b0;
     rd_data           = 32'd0;
     addr_to_dmem      = 32'd0;
@@ -332,183 +352,202 @@ module DatapathMultiCycle (
     store_we_to_dmem  = 4'b0000;
     pcNext            = pcCurrent + 4;
     illegal_inst      = 1'b0;
+    alu_op            = 3'b000;
 
-if (div_busy) begin
-      // đang trong chuỗi 8 chu kỳ chia
-      if (div_count != 3'd7) begin
-        // các cycle 0..6: chỉ stall, không ghi gì
-        pcNext = pcCurrent;  // khoá PC
-        we     = 1'b0;
-      end else begin
-        // cycle cuối (div_count == 7): ghi kết quả và nhảy PC
-        pcNext = pcCurrent + 4;
+    // Ưu tiên xử lý DIV/REM
+    if (div_busy && !div_done) begin
+      // Đang chờ bộ chia → stall PC, không ghi rd
+      pcNext = pcCurrent;
+      we     = 1'b0;
 
-        we = 1'b1;
-        if (inst_divu || inst_div) begin
-          // quotient
-          rd_data = div_is_signed ? div_quot_signed : div_quotient;
-        end else if (inst_remu || inst_rem) begin
-          // remainder
-          rd_data = div_is_signed ? div_rem_signed : div_remainder;
-        end
+    end else if (div_busy && div_done) begin
+      // Cycle write-back
+      pcNext = pcCurrent + 4;
+      we     = 1'b1;
+
+      if (inst_divu || inst_div) begin
+        // quotient
+        rd_data = div_is_signed ? div_quot_signed : div_quotient;
+      end else if (inst_remu || inst_rem) begin
+        // remainder
+        rd_data = div_is_signed ? div_rem_signed : div_remainder;
       end
+
+    end else if (is_div_op) begin
+      // Cycle đầu tiên vừa detect lệnh chia: giữ PC, không ghi rd
+      pcNext = pcCurrent;
+      we     = 1'b0;
+
     end
 
-    // ===== KHÔNG BẬN CHIA: decode bình thường =====
-    else if (is_div_op) begin
-      // cycle đầu tiên khi gặp lệnh chia
-      // tại đây FSM ở always @(posedge clk) sẽ latch toán hạng và set div_busy = 1
-      pcNext = pcCurrent;  // ở lại lệnh này, chờ 8 chu kỳ
-      we     = 1'b0;       // chưa ghi rd
-      // các control khác để default 0
-    end
-    else begin 
-    if(inst_lui) begin
-        rd_data = inst_from_imem[31 : 20] << 20; 
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
-    end else if(inst_add) begin
-        alu_op = ALU_ADD;
+    // ===== Không bận chia: decode bình thường =====
+    else begin
+      if (inst_lui) begin
+        // đơn giản: imm[31:20] << 20 (giữ nguyên theo code cũ)
+        rd_data = inst_from_imem[31:20] << 20;
+        we      = 1'b1;
+        pcNext  = pcCurrent + 4;
+
+      end else if (inst_add) begin
+        alu_op  = ALU_ADD;
         rd_data = alu_out;
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
-    end else if(inst_sub) begin
-        alu_op = ALU_SUB;
+        we      = 1'b1;
+        pcNext  = pcCurrent + 4;
+
+      end else if (inst_sub) begin
+        alu_op  = ALU_SUB;
         rd_data = alu_out;
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
-    end else if(inst_addi) begin
-        alu_op = ALU_ADDI;
+        we      = 1'b1;
+        pcNext  = pcCurrent + 4;
+
+      end else if (inst_addi) begin
+        alu_op  = ALU_ADDI;
         rd_data = alu_out;
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
-    end else if(inst_jal) begin
+        we      = 1'b1;
+        pcNext  = pcCurrent + 4;
+
+      end else if (inst_jal) begin
         rd_data = pcCurrent + 4;
-        we = 1'b1;
-        pcNext = pcCurrent + imm_j_sext;
-    end else if(inst_jalr) begin
-        pcNext = (rs1_data + imm_i_sext) & ~32'd1;
-        we = 1'b1;
+        we      = 1'b1;
+        pcNext  = pcCurrent + imm_j_sext;
+
+      end else if (inst_jalr) begin
+        pcNext  = (rs1_data + imm_i_sext) & ~32'd1;
         rd_data = pcCurrent + 4;
-    end else if(inst_auipc) begin
-        rd_data = pcCurrent + ({{12{inst_from_imem[31]}}, inst_from_imem[31 : 12]});
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
-    end else if(inst_sw) begin
-        addr_to_dmem = rs1_data + imm_s_sext;
+        we      = 1'b1;
+
+      end else if (inst_auipc) begin
+        rd_data = pcCurrent + ({{12{inst_from_imem[31]}}, inst_from_imem[31:12]});
+        we      = 1'b1;
+        pcNext  = pcCurrent + 4;
+
+      end else if (inst_sw) begin
+        addr_to_dmem       = rs1_data + imm_s_sext;
         store_data_to_dmem = rs2_data;
-        store_we_to_dmem = 4'b1111;
-        we = 1'b0;
-        pcNext = pcCurrent + 4;
-    end else if(inst_lw) begin
+        store_we_to_dmem   = 4'b1111;
+        we                 = 1'b0;
+        pcNext             = pcCurrent + 4;
+
+      end else if (inst_lw) begin
         addr_to_dmem = rs1_data + imm_i_sext;
-        rd_data = load_data_from_dmem;
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
-    end else if(inst_beq) begin
+        rd_data      = load_data_from_dmem;
+        we           = 1'b1;
+        pcNext       = pcCurrent + 4;
+
+      end else if (inst_beq) begin
         we = 1'b0;
-        if(rs1_data == rs2_data) begin
-            pcNext = pcCurrent + imm_b_sext;
-        end else begin
-            pcNext = pcCurrent + 4;
-        end
-    end else if(inst_ecall) begin
+        if (rs1_data == rs2_data)
+          pcNext = pcCurrent + imm_b_sext;
+        else
+          pcNext = pcCurrent + 4;
+
+      end else if (inst_bne) begin
         we = 1'b0;
-        rd_data = 32'd0;
-        pcNext = pcCurrent + 4;
-    end else if(inst_bne) begin
+        if (rs1_data != rs2_data)
+          pcNext = pcCurrent + imm_b_sext;
+        else
+          pcNext = pcCurrent + 4;
+
+      end else if (inst_blt) begin
         we = 1'b0;
-        if(rs1_data != rs2_data) begin
-            pcNext = pcCurrent + imm_b_sext;
-        end else begin
-            pcNext = pcCurrent + 4;
-        end
-    end else if(inst_blt) begin
+        if ($signed(rs1_data) < $signed(rs2_data))
+          pcNext = pcCurrent + imm_b_sext;
+        else
+          pcNext = pcCurrent + 4;
+
+      end else if (inst_bge) begin
         we = 1'b0;
-        if($signed(rs1_data) < $signed(rs2_data)) begin
-            pcNext = pcCurrent + imm_b_sext;
-        end else begin
-            pcNext = pcCurrent + 4;
-        end
-    end else if(inst_bge) begin
-    we = 1'b0;
-    if ($signed(rs1_data) >= $signed(rs2_data))
-        pcNext = pcCurrent + imm_b_sext;
-    else
-        pcNext = pcCurrent + 4;
-    end else if (inst_bltu) begin
+        if ($signed(rs1_data) >= $signed(rs2_data))
+          pcNext = pcCurrent + imm_b_sext;
+        else
+          pcNext = pcCurrent + 4;
+
+      end else if (inst_bltu) begin
         we = 1'b0;
         if (rs1_data < rs2_data)
-            pcNext = pcCurrent + imm_b_sext;
+          pcNext = pcCurrent + imm_b_sext;
         else
-            pcNext = pcCurrent + 4;
+          pcNext = pcCurrent + 4;
+
       end else if (inst_bgeu) begin
         we = 1'b0;
         if (rs1_data >= rs2_data)
-            pcNext = pcCurrent + imm_b_sext;
+          pcNext = pcCurrent + imm_b_sext;
         else
-            pcNext = pcCurrent + 4;
+          pcNext = pcCurrent + 4;
+
       end else if (inst_lb) begin
         addr_to_dmem = rs1_data + imm_i_sext;
-        rd_data = {{24{load_data_from_dmem[7]}}, load_data_from_dmem[7:0]};
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
+        rd_data      = {{24{load_data_from_dmem[7]}}, load_data_from_dmem[7:0]};
+        we           = 1'b1;
+        pcNext       = pcCurrent + 4;
+
       end else if (inst_lh) begin
         addr_to_dmem = rs1_data + imm_i_sext;
-        rd_data = {{16{load_data_from_dmem[15]}}, load_data_from_dmem[15:0]};
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
+        rd_data      = {{16{load_data_from_dmem[15]}}, load_data_from_dmem[15:0]};
+        we           = 1'b1;
+        pcNext       = pcCurrent + 4;
+
       end else if (inst_lbu) begin
         addr_to_dmem = rs1_data + imm_i_sext;
-        rd_data = {24'd0, load_data_from_dmem[7:0]};
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
+        rd_data      = {24'd0, load_data_from_dmem[7:0]};
+        we           = 1'b1;
+        pcNext       = pcCurrent + 4;
+
       end else if (inst_lhu) begin
         addr_to_dmem = rs1_data + imm_i_sext;
-        rd_data = {16'd0, load_data_from_dmem[15:0]};
-        we = 1'b1;
-        pcNext = pcCurrent + 4;
-    end else begin
+        rd_data      = {16'd0, load_data_from_dmem[15:0]};
+        we           = 1'b1;
+        pcNext       = pcCurrent + 4;
+
+      end else if (inst_ecall) begin
+        we      = 1'b0;
         rd_data = 32'd0;
-        we = 1'b0;
+        pcNext  = pcCurrent + 4;
+
+      end else begin
+        rd_data      = 32'd0;
+        we           = 1'b0;
         illegal_inst = 1'b1;
       end
+    end
   end
- end
 
-always @(*) begin
+  // ====== ALU operand select ======
+  always @(*) begin
     case (alu_op)
-        ALU_ADD: begin
-            alu_a  = rs1_data;
-            alu_b  = rs2_data;
-            alu_cin = 1'b0;
-        end
+      ALU_ADD: begin
+        alu_a  = rs1_data;
+        alu_b  = rs2_data;
+        alu_cin = 1'b0;
+      end
 
-        ALU_SUB: begin
-            alu_a  = rs1_data;
-            alu_b  = ~rs2_data;
-            alu_cin = 1'b1;
-        end
+      ALU_SUB: begin
+        alu_a  = rs1_data;
+        alu_b  = ~rs2_data;
+        alu_cin = 1'b1;
+      end
 
-        ALU_ADDI: begin
-            alu_a  = rs1_data;
-            alu_b  = imm_i_sext;
-            alu_cin = 1'b0;
-        end
+      ALU_ADDI: begin
+        alu_a  = rs1_data;
+        alu_b  = imm_i_sext;
+        alu_cin = 1'b0;
+      end
 
-        default: begin
-            alu_a  = 0;
-            alu_b  = 0;
-            alu_cin = 0;
-        end
+      default: begin
+        alu_a  = 0;
+        alu_b  = 0;
+        alu_cin = 0;
+      end
     endcase
-end
+  end
 
   assign alu_out = alu_sum;
   assign rd      = inst_rd;
   assign rs1     = inst_rs1;
   assign rs2     = inst_rs2;
-  // halt when we see an illegal instruction
+
+  // ====== Halt on illegal instruction ======
   always @(posedge clk) begin
     if (rst) begin
       halt <= 1'b0;
@@ -521,34 +560,33 @@ end
 
 endmodule
 
+// ============================================================================
+
 module MemorySingleCycle #(
     parameter NUM_WORDS = 512
 ) (
-  input                    rst,                 // rst for both imem and dmem
-  input                    clock_mem,           // clock for both imem and dmem
-  input      [`REG_SIZE:0] pc_to_imem,          // must always be aligned to a 4B boundary
-  output reg [`REG_SIZE:0] inst_from_imem,      // the value at memory location pc_to_imem
-  input      [`REG_SIZE:0] addr_to_dmem,        // must always be aligned to a 4B boundary
-  output reg [`REG_SIZE:0] load_data_from_dmem, // the value at memory location addr_to_dmem
-  input      [`REG_SIZE:0] store_data_to_dmem,  // the value to be written to addr_to_dmem, controlled by store_we_to_dmem
-  // Each bit determines whether to write the corresponding byte of store_data_to_dmem to memory location addr_to_dmem.
-  // E.g., 4'b1111 will write 4 bytes. 4'b0001 will write only the least-significant byte.
+  input                    rst,
+  input                    clock_mem,
+  input      [`REG_SIZE:0] pc_to_imem,
+  output reg [`REG_SIZE:0] inst_from_imem,
+  input      [`REG_SIZE:0] addr_to_dmem,
+  output reg [`REG_SIZE:0] load_data_from_dmem,
+  input      [`REG_SIZE:0] store_data_to_dmem,
   input      [        3:0] store_we_to_dmem
 );
 
-  // memory is arranged as an array of 4B words
   reg [`REG_SIZE:0] mem_array[0:NUM_WORDS-1];
 
-  // preload instructions to mem_array
   initial begin
-    $readmemh("mem_initial_contents.hex", mem_array);
+    $readmemh("/home/hoang-quan/lab_Soc/Lab4/Lab4.srcs/sources_1/new/mem_initial_contents.hex",
+               mem_array);
   end
 
   localparam AddrMsb = $clog2(NUM_WORDS) + 1;
   localparam AddrLsb = 2;
 
   always @(posedge clock_mem) begin
-    inst_from_imem <= mem_array[{pc_to_imem[AddrMsb:AddrLsb]}];
+    inst_from_imem <= mem_array[pc_to_imem[AddrMsb:AddrLsb]];
   end
 
   always @(negedge clock_mem) begin
@@ -564,23 +602,18 @@ module MemorySingleCycle #(
     if (store_we_to_dmem[3]) begin
       mem_array[addr_to_dmem[AddrMsb:AddrLsb]][31:24] <= store_data_to_dmem[31:24];
     end
-    // dmem is "read-first": read returns value before the write
-    load_data_from_dmem <= mem_array[{addr_to_dmem[AddrMsb:AddrLsb]}];
+    load_data_from_dmem <= mem_array[addr_to_dmem[AddrMsb:AddrLsb]];
   end
 endmodule
 
 /*
-This shows the relationship between clock_proc and clock_mem. The clock_mem is
-phase-shifted 90° from clock_proc. You could think of one proc cycle being
-broken down into 3 parts. During part 1 (which starts @posedge clock_proc)
-the current PC is sent to the imem. In part 2 (starting @posedge clock_mem) we
-read from imem. In part 3 (starting @negedge clock_mem) we read/write memory and
-prepare register/PC updates, which occur at @posedge clock_proc.
+Clock relationship:
         ____
  proc: |    |______
            ____
  mem:  ___|    |___
 */
+
 module Processor (
     input  clock_proc,
     input  clock_mem,
@@ -588,22 +621,19 @@ module Processor (
     output halt
 );
 
-  wire [`REG_SIZE:0] pc_to_imem, inst_from_imem, mem_data_addr, mem_data_loaded_value, mem_data_to_write;
+  wire [`REG_SIZE:0] pc_to_imem, inst_from_imem;
+  wire [`REG_SIZE:0] mem_data_addr, mem_data_loaded_value, mem_data_to_write;
   wire [        3:0] mem_data_we;
 
-  // This wire is set by cocotb to the name of the currently-running test, to make it easier
-  // to see what is going on in the waveforms.
-  wire [(8*32)-1:0] test_case;
+  wire [(8*32)-1:0] test_case; // for cocotb
 
   MemorySingleCycle #(
       .NUM_WORDS(8192)
   ) memory (
     .rst                 (rst),
     .clock_mem           (clock_mem),
-    // imem is read-only
     .pc_to_imem          (pc_to_imem),
     .inst_from_imem      (inst_from_imem),
-    // dmem is read-write
     .addr_to_dmem        (mem_data_addr),
     .load_data_from_dmem (mem_data_loaded_value),
     .store_data_to_dmem  (mem_data_to_write),
