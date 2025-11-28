@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="test_bench_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="glbl" />
+            <top_module name="test_bench" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="59.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="163.401 ns"></ZoomEndTime>
+      <Cursor1Time time="146.000 ns"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="183"></NameColumnWidth>
+      <ValueColumnWidth column_width="84"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="9" />
+   <wvobject type="logic" fp_name="/test_bench/clk_proc">
+      <obj_property name="ElementShortName">clk_proc</obj_property>
+      <obj_property name="ObjectShortName">clk_proc</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/test_bench/clk_mem">
+      <obj_property name="ElementShortName">clk_mem</obj_property>
+      <obj_property name="ObjectShortName">clk_mem</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/test_bench/rst">
+      <obj_property name="ElementShortName">rst</obj_property>
+      <obj_property name="ObjectShortName">rst</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/test_bench/halt">
+      <obj_property name="ElementShortName">halt</obj_property>
+      <obj_property name="ObjectShortName">halt</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/test_bench/dut/pc_to_imem">
+      <obj_property name="ElementShortName">pc_to_imem[31:0]</obj_property>
+      <obj_property name="ObjectShortName">pc_to_imem[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/test_bench/dut/inst_from_imem">
+      <obj_property name="ElementShortName">inst_from_imem[31:0]</obj_property>
+      <obj_property name="ObjectShortName">inst_from_imem[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/test_bench/dut/mem_data_addr">
+      <obj_property name="ElementShortName">mem_data_addr[31:0]</obj_property>
+      <obj_property name="ObjectShortName">mem_data_addr[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/test_bench/dut/mem_data_loaded_value">
+      <obj_property name="ElementShortName">mem_data_loaded_value[31:0]</obj_property>
+      <obj_property name="ObjectShortName">mem_data_loaded_value[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/test_bench/dut/memory/pc_to_imem">
+      <obj_property name="ElementShortName">pc_to_imem[31:0]</obj_property>
+      <obj_property name="ObjectShortName">pc_to_imem[31:0]</obj_property>
+   </wvobject>
+</wave_config>
